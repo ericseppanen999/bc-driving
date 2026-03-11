@@ -1,6 +1,11 @@
 import { RegionPreset } from "@/lib/types/domain";
 
 export const REGION_PRESETS: RegionPreset[] = [
+  {
+    id: "default-view",
+    label: "Core + North Shore",
+    bbox: { xmin: -123.24, ymin: 49.268, xmax: -123.02, ymax: 49.37 }
+  },
   { id: "all", label: "All" },
   {
     id: "downtown",
@@ -10,17 +15,22 @@ export const REGION_PRESETS: RegionPreset[] = [
   {
     id: "east-vancouver",
     label: "East Vancouver",
-    bbox: { xmin: -123.095, ymin: 49.235, xmax: -123.02, ymax: 49.295 }
+    bbox: { xmin: -123.095, ymin: 49.235, xmax: -123.02, ymax: 49.305 }
+  },
+  {
+    id: "lions-gate",
+    label: "Lions Gate",
+    bbox: { xmin: -123.18, ymin: 49.285, xmax: -123.095, ymax: 49.335 }
   },
   {
     id: "north-vancouver",
     label: "North Vancouver",
-    bbox: { xmin: -123.145, ymin: 49.295, xmax: -122.95, ymax: 49.355 }
+    bbox: { xmin: -123.19, ymin: 49.285, xmax: -122.95, ymax: 49.37 }
   },
   {
     id: "west-vancouver",
     label: "West Vancouver",
-    bbox: { xmin: -123.29, ymin: 49.31, xmax: -123.11, ymax: 49.39 }
+    bbox: { xmin: -123.30, ymin: 49.285, xmax: -123.08, ymax: 49.40 }
   },
   {
     id: "burnaby",

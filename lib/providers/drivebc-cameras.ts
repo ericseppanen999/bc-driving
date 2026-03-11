@@ -17,6 +17,60 @@ const DETAIL_CACHE_PREFIX = "provider:drivebc:detail:";
 const DATASET_URL =
   "https://catalogue.data.gov.bc.ca/dataset/6b39a910-6c77-476f-ac96-7b4f18849b1c/resource/a9d52d85-8402-4ce7-b2ac-a2779837c48a/download/webcams.csv";
 
+const CRITICAL_CAMERA_OVERRIDES: Camera[] = [
+  {
+    id: "drivebc-18",
+    provider: "drivebc",
+    sourceId: "18",
+    name: "LGB North End 1",
+    latitude: 49.3171,
+    longitude: -123.1392,
+    area: "Lions Gate",
+    roadName: "Highway 99",
+    orientation: "South",
+    snippet: "Lions Gate Bridge north end, looking south.",
+    pageUrl: "https://images.drivebc.ca/bchighwaycam/pub/html/www/18.html",
+    imageUrl: "https://www.drivebc.ca/images/18.jpg",
+    imageUrls: [{ url: "https://www.drivebc.ca/images/18.jpg" }],
+    updateIntervalSeconds: 300,
+    attribution: "DriveBC"
+  },
+  {
+    id: "drivebc-20",
+    provider: "drivebc",
+    sourceId: "20",
+    name: "LGB North End 2",
+    latitude: 49.3174,
+    longitude: -123.1386,
+    area: "Lions Gate",
+    roadName: "Highway 99",
+    orientation: "North",
+    snippet: "Lions Gate Bridge north end, looking north.",
+    pageUrl: "https://images.drivebc.ca/bchighwaycam/pub/html/www/20.html",
+    imageUrl: "https://www.drivebc.ca/images/20.jpg",
+    imageUrls: [{ url: "https://www.drivebc.ca/images/20.jpg" }],
+    updateIntervalSeconds: 300,
+    attribution: "DriveBC"
+  },
+  {
+    id: "drivebc-21",
+    provider: "drivebc",
+    sourceId: "21",
+    name: "Taylor Way",
+    latitude: 49.3252,
+    longitude: -123.1409,
+    area: "Lions Gate",
+    roadName: "Highway 99",
+    orientation: "North",
+    snippet: "Taylor Way at Marine Drive, looking north on Taylor Way.",
+    pageUrl: "https://images.drivebc.ca/bchighwaycam/pub/html/www/21.html",
+    imageUrl: "https://www.drivebc.ca/images/21.jpg",
+    imageUrls: [{ url: "https://www.drivebc.ca/images/21.jpg" }],
+    updateIntervalSeconds: 300,
+    attribution: "DriveBC"
+  }
+];
+
 function buildDriveBcSnippet(record: Record<string, string>) {
   const pieces = [
     sanitizeText(record.highway_number ?? record.highway ?? record.road_name),
@@ -59,18 +113,47 @@ function parseCsvLine(line: string): string[] {
   return values;
 }
 
-function deriveDriveBcImageUrl(sourceId: string, pageUrl?: string) {
-  const numericSourceId = sourceId.match(/^\d+$/)?.[0];
-  if (numericSourceId) {
-    return `https://www.drivebc.ca/images/${numericSourceId}.jpg`;
-  }
+export function deriveDriveBcImageUrl(candidateFields: Array<string | undefined>) {
+  for (const candidate of candidateFields) {
+    if (!candidate) {
+      continue;
+    }
 
-  const numericPageId = pageUrl?.match(/\/(\d+)\.html/i)?.[1];
-  if (numericPageId) {
-    return `https://www.drivebc.ca/images/${numericPageId}.jpg`;
+    const imageUrl = sanitizeUrl(candidate);
+    if (imageUrl && /\/images\/\d+\.jpg(?:$|\?)/i.test(imageUrl)) {
+      return imageUrl.replace(/\?.*$/, "");
+    }
+
+    const numericMatch = candidate.match(/(?:^|\D)(\d{1,6})(?:\.jpg|\.html|\D|$)/i);
+    if (numericMatch?.[1]) {
+      return `https://www.drivebc.ca/images/${numericMatch[1]}.jpg`;
+    }
   }
 
   return undefined;
+}
+
+function mergeCriticalCameras(cameras: Camera[]) {
+  const byId = new Map(cameras.map((camera) => [camera.id, camera]));
+
+  CRITICAL_CAMERA_OVERRIDES.forEach((override) => {
+    const existing = byId.get(override.id);
+    byId.set(override.id, {
+      ...override,
+      ...existing,
+      latitude: existing?.latitude ?? override.latitude,
+      longitude: existing?.longitude ?? override.longitude,
+      pageUrl: existing?.pageUrl ?? override.pageUrl,
+      imageUrl: existing?.imageUrl ?? override.imageUrl,
+      imageUrls: existing?.imageUrls?.length ? existing.imageUrls : override.imageUrls,
+      snippet: existing?.snippet ?? override.snippet,
+      area: existing?.area ?? override.area,
+      roadName: existing?.roadName ?? override.roadName,
+      orientation: existing?.orientation ?? override.orientation
+    });
+  });
+
+  return Array.from(byId.values());
 }
 
 function parseCsv(csv: string): Camera[] {
@@ -80,7 +163,7 @@ function parseCsv(csv: string): Camera[] {
   }
 
   const headers = parseCsvLine(headerLine).map((part) => part.replace(/^"|"$/g, ""));
-  return lines
+  const cameras = lines
     .map((line, index) => {
       const values = parseCsvLine(line).map((part) => part.replace(/^"|"$/g, ""));
       const record = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] ?? ""]));
@@ -93,7 +176,14 @@ function parseCsv(csv: string): Camera[] {
       const sourceId = record.id ?? record.cameraid ?? String(index);
       const name = sanitizeText(record.camName ?? record.name ?? record.description ?? record.label) ?? "DriveBC camera";
       const pageUrl = sanitizeUrl(record.links_bchighwaycam ?? record.pageurl ?? record.url ?? record.link);
-      const imageUrl = deriveDriveBcImageUrl(sourceId, pageUrl);
+      const imageUrl = deriveDriveBcImageUrl([
+        record.links_imageDisplay,
+        record.links_imageThumbnail,
+        record.links_bchighwaycam,
+        pageUrl,
+        record.cameraid,
+        record.id
+      ]);
 
       return {
         id: `drivebc-${sourceId}`.toLowerCase().replace(/[^a-z0-9-]+/g, "-"),
@@ -115,6 +205,8 @@ function parseCsv(csv: string): Camera[] {
       } satisfies Camera;
     })
     .filter(Boolean) as Camera[];
+
+  return mergeCriticalCameras(cameras);
 }
 
 function looksLikeUnavailableDriveBcHtml(html: string) {
@@ -173,7 +265,9 @@ async function fetchDriveBcCameras(): Promise<Camera[]> {
     return stale.value;
   }
 
-  return memoryCache.set(CACHE_KEY, mockDriveBcCameras, env.CACHE_TTL_DRIVEBC_CAMERAS_SECONDS);
+  return mergeCriticalCameras(
+    memoryCache.set(CACHE_KEY, mockDriveBcCameras, env.CACHE_TTL_DRIVEBC_CAMERAS_SECONDS)
+  );
 }
 
 export const driveBcCameraAdapter: ProviderAdapter<Camera> = {

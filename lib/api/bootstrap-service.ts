@@ -7,17 +7,17 @@ import { driveBcCameraAdapter } from "@/lib/providers/drivebc-cameras";
 import { driveBcEventsAdapter } from "@/lib/providers/drivebc-events";
 import { vancouverCameraAdapter } from "@/lib/providers/vancouver-cameras";
 
-const METRO_VANCOUVER_BBOX: BBox = {
-  xmin: -123.31,
-  ymin: 49.1,
-  xmax: -122.84,
-  ymax: 49.4
+const DEFAULT_VIEW_BBOX: BBox = {
+  xmin: -123.24,
+  ymin: 49.268,
+  xmax: -123.02,
+  ymax: 49.37
 };
 
 export async function getBootstrapData(): Promise<BootstrapResponse> {
   const [rawCameras, events, health] = await Promise.all([
-    getCameras({ limit: 500 }),
-    getEvents({ bbox: METRO_VANCOUVER_BBOX, limit: 200 }),
+    getCameras({ bbox: DEFAULT_VIEW_BBOX }),
+    getEvents({ bbox: DEFAULT_VIEW_BBOX, limit: 150 }),
     Promise.all([
       vancouverCameraAdapter.healthcheck(),
       driveBcCameraAdapter.healthcheck(),
@@ -25,7 +25,7 @@ export async function getBootstrapData(): Promise<BootstrapResponse> {
     ])
   ]);
 
-  const cameras = await enrichCameraPreviews(rawCameras, 36);
+  const cameras = await enrichCameraPreviews(rawCameras, 32);
 
   const staleWarnings = health
     .filter((item) => item.stale || item.status !== "ok")
@@ -38,9 +38,9 @@ export async function getBootstrapData(): Promise<BootstrapResponse> {
     generatedAt: new Date().toISOString(),
     config: {
       defaultCenter: {
-        lat: env.APP_DEFAULT_LAT,
-        lng: env.APP_DEFAULT_LNG,
-        zoom: env.APP_DEFAULT_ZOOM
+        lat: 49.305,
+        lng: -123.135,
+        zoom: 11
       },
       regions: REGION_PRESETS,
       ui: {

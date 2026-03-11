@@ -5,20 +5,22 @@ export function CameraList({
   cameras,
   favoriteIds,
   onSelect,
-  onToggleFavorite
+  onToggleFavorite,
+  className = ""
 }: {
   cameras: Camera[];
   favoriteIds: string[];
   onSelect: (camera: Camera) => void;
   onToggleFavorite: (cameraId: string) => void;
+  className?: string;
 }) {
   return (
-    <section className="panel flex-1 overflow-hidden">
+    <section className={`panel flex-1 overflow-hidden ${className}`.trim()}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Camera list</h2>
         <span className="text-xs text-slate-400">{cameras.length} visible</span>
       </div>
-      <div className="grid max-h-[420px] gap-3 overflow-y-auto p-4 md:max-h-[480px]">
+      <div className="grid max-h-[calc(100vh-15rem)] gap-3 overflow-y-auto p-4 md:max-h-[480px]">
         {cameras.map((camera) => (
           <article key={camera.id} className="overflow-hidden rounded-3xl border border-slate-100 bg-slate-50">
             <div

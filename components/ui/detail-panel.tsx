@@ -6,16 +6,18 @@ export function DetailPanel({
   event,
   favoriteIds,
   onToggleFavorite,
-  onClose
+  onClose,
+  className = ""
 }: {
   camera: Camera | null;
   event: TrafficEvent | null;
   favoriteIds: string[];
   onToggleFavorite: (cameraId: string) => void;
   onClose: () => void;
+  className?: string;
 }) {
   return (
-    <section className="panel min-h-[260px] overflow-hidden">
+    <section className={`panel min-h-[260px] overflow-hidden ${className}`.trim()}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Details</h2>
         <button onClick={onClose} className="text-sm text-slate-500">
