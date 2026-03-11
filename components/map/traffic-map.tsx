@@ -1,8 +1,9 @@
 "use client";
 
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useEffect, useMemo } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Camera, TrafficEvent } from "@/lib/types/domain";
+import { BBox, Camera, TrafficEvent } from "@/lib/types/domain";
 
 const cameraIcon = L.divIcon({
   className: "custom-camera-icon",
@@ -18,19 +19,97 @@ const eventIcon = L.divIcon({
   iconAnchor: [8, 8]
 });
 
+function formatCoordKey(latitude: number, longitude: number) {
+  return `${latitude.toFixed(5)}:${longitude.toFixed(5)}`;
+}
+
+function spreadCameraMarkers(cameras: Camera[]) {
+  const counts = new Map<string, number>();
+
+  return cameras.map((camera) => {
+    const key = formatCoordKey(camera.latitude, camera.longitude);
+    const index = counts.get(key) ?? 0;
+    counts.set(key, index + 1);
+
+    if (index === 0) {
+      return {
+        camera,
+        latitude: camera.latitude,
+        longitude: camera.longitude
+      };
+    }
+
+    const angle = (index * Math.PI) / 3;
+    const radius = 0.0012 * Math.ceil(index / 6);
+
+    return {
+      camera,
+      latitude: camera.latitude + Math.sin(angle) * radius,
+      longitude: camera.longitude + Math.cos(angle) * radius
+    };
+  });
+}
+
+function MapViewport({
+  center,
+  regionBbox,
+  cameras,
+  events
+}: {
+  center?: { lat: number; lng: number; zoom: number };
+  regionBbox?: BBox;
+  cameras: Camera[];
+  events: TrafficEvent[];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (regionBbox) {
+      map.fitBounds(
+        [
+          [regionBbox.ymin, regionBbox.xmin],
+          [regionBbox.ymax, regionBbox.xmax]
+        ],
+        { padding: [24, 24] }
+      );
+      return;
+    }
+
+    const points: Array<[number, number]> = [
+      ...cameras.map((camera) => [camera.latitude, camera.longitude] as [number, number]),
+      ...events
+        .filter((event) => event.latitude !== undefined && event.longitude !== undefined)
+        .map((event) => [event.latitude as number, event.longitude as number] as [number, number])
+    ];
+
+    if (points.length > 1) {
+      map.fitBounds(points, { padding: [24, 24], maxZoom: 13 });
+      return;
+    }
+
+    map.setView([center?.lat ?? 49.2827, center?.lng ?? -123.1207], center?.zoom ?? 11);
+  }, [map, center, regionBbox, cameras, events]);
+
+  return null;
+}
+
 export function TrafficMap({
   center,
+  regionBbox,
   cameras,
   events,
   onSelectCamera,
   onSelectEvent
 }: {
   center?: { lat: number; lng: number; zoom: number };
+  regionBbox?: BBox;
   cameras: Camera[];
   events: TrafficEvent[];
   onSelectCamera: (camera: Camera) => void;
   onSelectEvent: (event: TrafficEvent) => void;
 }) {
+  const spreadCameras = useMemo(() => spreadCameraMarkers(cameras), [cameras]);
+
   return (
     <MapContainer
       center={[center?.lat ?? 49.2827, center?.lng ?? -123.1207]}
@@ -42,10 +121,11 @@ export function TrafficMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {cameras.map((camera) => (
+      <MapViewport center={center} regionBbox={regionBbox} cameras={cameras} events={events} />
+      {spreadCameras.map(({ camera, latitude, longitude }) => (
         <Marker
           key={camera.id}
-          position={[camera.latitude, camera.longitude]}
+          position={[latitude, longitude]}
           icon={cameraIcon}
           eventHandlers={{ click: () => onSelectCamera(camera) }}
         >

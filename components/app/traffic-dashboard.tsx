@@ -197,6 +197,7 @@ export function TrafficDashboard() {
               <>
                 <TrafficMap
                   center={data?.config.defaultCenter}
+                  regionBbox={region?.bbox}
                   cameras={filteredCameras}
                   events={filteredEvents}
                   onSelectCamera={handleSelectCamera}
